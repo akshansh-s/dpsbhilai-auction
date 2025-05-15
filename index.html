@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Domain Auction – dpsbhilai.com</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;font-family:Inter,system-ui,Arial,sans-serif;margin:0;padding:0}
+    body{display:flex;flex-direction:column;min-height:100vh;background:#f6f7fb;color:#333;justify-content:center;align-items:center;padding:1rem}
+    .container{max-width:480px;width:100%;background:#fff;padding:1.5rem;border-radius:1rem;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+    h1{font-size:1.5rem;font-weight:600;margin-bottom:1rem;text-align:center}
+    .current-bid{font-size:1.25rem;font-weight:600;margin:1rem 0;text-align:center;color:#2196f3}
+    input[type=range]{width:100%;margin:1rem 0}
+    input[type=number]{width:100%;padding:.5rem;border:1px solid #ccc;border-radius:.5rem;margin-bottom:1rem;font-size:1rem}
+    button{width:100%;padding:.75rem;border:none;border-radius:.5rem;background:#2196f3;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:background .2s}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    label{display:block;margin-top:.75rem;font-size:.875rem;font-weight:600}
+    footer{margin-top:2rem;font-size:.75rem;text-align:center;color:#777}
+    .modal{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:999}
+    .modal.active{display:flex}
+    .modal-content{background:#fff;border-radius:1rem;padding:1.5rem;width:90%;max-width:480px;position:relative}
+    .close{position:absolute;top:.75rem;right:.75rem;font-size:1.25rem;cursor:pointer;color:#888}
+    textarea{resize:vertical}
+    @media (min-width:600px){h1{font-size:1.75rem}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>This Domain is up for Sale</h1>
+    <div class="current-bid">Current Highest Bid: ₹<span id="highestBid">--</span></div>
+
+    <label for="bidInput">Enter your bid (₹)</label>
+    <input type="number" id="bidInput" min="0" step="100" required>
+    <input type="range" id="bidRange" min="0" step="100">
+
+    <button id="bidBtn" disabled>Place Bid</button>
+  </div>
+
+  <div class="modal" id="bidModal">
+    <div class="modal-content">
+      <span class="close" id="closeModal">&times;</span>
+      <h2>Complete Your Bid</h2>
+      <form id="bidForm">
+        <label>Full Name</label>
+        <input type="text" id="fullName" required>
+        <label>Email</label>
+        <input type="email" id="email" required>
+        <label>Mobile Number</label>
+        <input type="tel" id="mobile" pattern="[0-9]{10}" required placeholder="10‑digit number">
+        <label>Your plans for this domain</label>
+        <textarea id="plans" rows="3" required style="width:100%;padding:.5rem;border:1px solid #ccc;border-radius:.5rem"></textarea>
+        <button type="submit" style="margin-top:1rem">Submit Bid</button>
+      </form>
+    </div>
+  </div>
+
+  <footer>
+    <p>This website is not an official website of DPS Bhilai. For the official site visit <a href="https://dpsbhilai.in" target="_blank" rel="noopener">dpsbhilai.in</a>.</p>
+    <p>For additional details, contact: <a href="mailto:wearsnc@gmail.com">wearsnc@gmail.com</a></p>
+  </footer>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-auth-compat.js"></script>
+  <script>
+    // 1️⃣ Replace with your Firebase project configuration
+    const firebaseConfig = {
+      apiKey: "YOUR_KEY_HERE",
+      authDomain: "YOUR_DOMAIN.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_BUCKET.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // 2️⃣ Initialise Firebase services
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // Sign users in anonymously (no account needed, keeps Spark plan free)
+    auth.signInAnonymously().catch(console.error);
+
+    // UI references
+    const highestBidEl = document.getElementById('highestBid');
+    const bidInput      = document.getElementById('bidInput');
+    const bidRange      = document.getElementById('bidRange');
+    const bidBtn        = document.getElementById('bidBtn');
+    const bidModal      = document.getElementById('bidModal');
+    const closeModal    = document.getElementById('closeModal');
+    const bidForm       = document.getElementById('bidForm');
+
+    let currentHighest = 0;
+
+    // 🔴 Real‑time listener for highest bid
+    db.collection('bids').orderBy('amount', 'desc').limit(1)
+      .onSnapshot(snapshot => {
+        if (!snapshot.empty) {
+          currentHighest = snapshot.docs[0].data().amount;
+        } else {
+          currentHighest = 0;
+        }
+        highestBidEl.textContent = currentHighest.toLocaleString();
+        bidInput.min  = currentHighest + 1;
+        bidRange.min  = currentHighest + 1;
+        bidInput.value = currentHighest + 1;
+        bidRange.value = currentHighest + 1;
+        bidBtn.disabled = false;
+      });
+
+    // 🔁 Sync range & number inputs
+    bidInput.addEventListener('input', e => bidRange.value = e.target.value);
+    bidRange.addEventListener('input', e => bidInput.value = e.target.value);
+
+    // ➡️ Open modal
+    bidBtn.addEventListener('click', () => bidModal.classList.add('active'));
+
+    // ❌ Close modal
+    closeModal.addEventListener('click', () => bidModal.classList.remove('active'));
+    window.addEventListener('click', e => { if (e.target === bidModal) bidModal.classList.remove('active'); });
+
+    // ✅ Handle bid submit
+    bidForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const amount = parseInt(bidInput.value, 10);
+      if (amount <= currentHighest) {
+        alert('Bid must be higher than the current highest bid.');
+        return;
+      }
+      const doc = {
+        amount,
+        name:   document.getElementById('fullName').value.trim(),
+        email:  document.getElementById('email').value.trim().toLowerCase(),
+        mobile: document.getElementById('mobile').value.trim(),
+        plans:  document.getElementById('plans').value.trim(),
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      try {
+        await db.collection('bids').add(doc);
+        alert('Your bid has been placed successfully!');
+        bidForm.reset();
+        bidModal.classList.remove('active');
+      } catch (err) {
+        console.error(err);
+        alert('Something went wrong. Please try again.');
+      }
+    });
+  </script>
+</body>
+</html>
