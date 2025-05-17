@@ -32,11 +32,11 @@
     <div class="current-bid">Current Highest Bid: ₹<span id="highestBid">--</span></div>
 
     <label for="bidInput">Enter your bid (₹)</label>
-    <input type="number" id="bidInput" min="0" step="100" required>
-    <input type="range" id="bidRange" min="0" step="100">
+    <input type="number" id="bidInput" step="100" required>
+    <input type="range" id="bidRange" step="100">
 
     <button id="bidBtn">Place Bid</button>
-<!--     <button id="authBtn">Sign in / Register</button> -->
+    <button id="authBtn" class="hidden">Sign in / Register</button>
   </div>
 
   <!-- Bid details modal -->
@@ -127,7 +127,9 @@
         highestBidEl.textContent = currentHighest.toLocaleString();
         [bidInput, bidRange].forEach(el => {
           el.min = currentHighest + 1;
-          if (parseInt(el.value, 10) <= currentHighest) el.value = currentHighest + 1;
+          if (!el.value || parseInt(el.value, 10) <= currentHighest) {
+            el.value = currentHighest + 1;
+          }
         });
       });
 
@@ -135,8 +137,10 @@
     bidInput.addEventListener('input', e => bidRange.value = e.target.value);
     bidRange.addEventListener('input', e => bidInput.value = e.target.value);
 
-    // 👉 Auth modal triggers
-    authBtn.addEventListener('click', () => authModal.classList.add('active'));
+    // 👉 Auth modal triggers (check in case authBtn exists)
+    if (authBtn) {
+      authBtn.addEventListener('click', () => authModal.classList.add('active'));
+    }
     closeAuth.addEventListener('click', () => authModal.classList.remove('active'));
     window.addEventListener('click', e => { if (e.target === authModal) authModal.classList.remove('active'); });
 
@@ -174,7 +178,9 @@
     auth.onAuthStateChanged(user => {
       currentUser = user;
       isVerified = !!user && (user.providerData.some(p => p.providerId === 'google.com') || user.emailVerified);
-      authBtn.classList.toggle('hidden', isVerified);
+      if (authBtn) {
+        authBtn.classList.toggle('hidden', isVerified);
+      }
       if (isVerified && pendingBidAmount !== null) {
         // open bid modal automatically with stored amount
         if (pendingBidAmount <= currentHighest) {
@@ -204,32 +210,6 @@
 
     // Close bid modal
     closeModal.addEventListener('click', () => bidModal.classList.remove('active'));
-    window.addEventListener('click', e => { if (e.target === bidModal) bidModal.classList.remove('active'); });
+    window.addEventListener('click
 
-    // 🚀 Submit bid
-    bidForm.addEventListener('submit', async e => {
-      e.preventDefault();
-      const amount = parseInt(bidInput.value, 10);
-      if (amount <= currentHighest) return alert('Bid must exceed current highest bid.');
-      const doc = {
-        amount,
-        name:   document.getElementById('fullName').value.trim(),
-        email:  currentUser.email,
-        mobile: document.getElementById('mobile').value.trim(),
-        plans:  document.getElementById('plans').value.trim(),
-        uid:    currentUser.uid,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      try {
-        await db.collection('bids').add(doc);
-        alert('Bid placed successfully!');
-        bidForm.reset();
-        bidModal.classList.remove('active');
-      } catch (err) {
-        console.error(err);
-        alert('Failed to place bid.');
-      }
-    });
-  </script>
-</body>
-</html>
+    
