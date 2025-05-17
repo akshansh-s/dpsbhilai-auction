@@ -4,27 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Domain Auction – dpsbhilai.com</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <style>
-    *{box-sizing:border-box;font-family:Inter,system-ui,Arial,sans-serif;margin:0;padding:0}
-    body{display:flex;flex-direction:column;min-height:100vh;background:#f6f7fb;color:#333;justify-content:center;align-items:center;padding:1rem}
-    .container{max-width:480px;width:100%;background:#fff;padding:1.5rem;border-radius:1rem;box-shadow:0 4px 20px rgba(0,0,0,.08)}
-    h1{font-size:1.5rem;font-weight:600;margin-bottom:1rem;text-align:center}
-    .current-bid{font-size:1.25rem;font-weight:600;margin:1rem 0;text-align:center;color:#2196f3}
-    input[type=range]{width:100%;margin:1rem 0}
-    input[type=number]{width:100%;padding:.5rem;border:1px solid #ccc;border-radius:.5rem;margin-bottom:1rem;font-size:1rem}
-    button{width:100%;padding:.75rem;border:none;border-radius:.5rem;background:#2196f3;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:background .2s}
-    button:disabled{opacity:.6;cursor:not-allowed}
-    label{display:block;margin-top:.75rem;font-size:.875rem;font-weight:600}
-    footer{margin-top:2rem;font-size:.75rem;text-align:center;color:#777}
-    .modal{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:999}
-    .modal.active{display:flex}
-    .modal-content{background:#fff;border-radius:1rem;padding:1.5rem;width:90%;max-width:480px;position:relative}
-    .close{position:absolute;top:.75rem;right:.75rem;font-size:1.25rem;cursor:pointer;color:#888}
-    textarea{resize:vertical}
-    #authBtn.hidden{display:none !important}
-    @media (min-width:600px){h1{font-size:1.75rem}}
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
@@ -33,7 +15,6 @@
 
     <label for="bidInput">Enter your bid (₹)</label>
     <input type="number" id="bidInput" step="100" required>
-    <input type="range" id="bidRange" step="100">
 
     <button id="bidBtn">Place Bid</button>
     <button id="authBtn" class="hidden">Sign in / Register</button>
@@ -52,8 +33,8 @@
         <label>Mobile Number</label>
         <input type="tel" id="mobile" pattern="[0-9]{10}" required placeholder="10-digit number">
         <label>Your plans for this domain</label>
-        <textarea id="plans" rows="3" required style="width:100%;padding:.5rem;border:1px solid #ccc;border-radius:.5rem"></textarea>
-        <button type="submit" style="margin-top:1rem">Submit Bid</button>
+        <textarea id="plans" rows="3" required></textarea>
+        <button type="submit">Submit Bid</button>
       </form>
     </div>
   </div>
@@ -63,13 +44,13 @@
     <div class="modal-content">
       <span class="close" id="closeAuth">&times;</span>
       <h2>Sign in / Register</h2>
-      <button id="googleSignIn" style="margin-bottom:1rem">Continue with Google</button>
+      <button id="googleSignIn">Continue with Google</button>
       <form id="emailAuthForm">
         <label>Email</label>
         <input type="email" id="authEmail" required>
         <label>Password (min 6 chars)</label>
         <input type="password" id="authPassword" minlength="6" required>
-        <button type="submit" style="margin-top:1rem">Sign in / Register</button>
+        <button type="submit">Sign in / Register</button>
       </form>
     </div>
   </div>
@@ -79,137 +60,10 @@
     <p>For additional details, contact: <a href="mailto:wearsnc@gmail.com">wearsnc@gmail.com</a></p>
   </footer>
 
-  <!-- Firebase -->
+  <!-- Firebase libs -->
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-auth-compat.js"></script>
-  <script>
-    // 🔧 Replace with your Firebase project configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyDTqLeVYnn0DDHdZ2TM34OKY-RABpZp9xw",
-      authDomain: "dpsb-auction.firebaseapp.com",
-      projectId: "dpsb-auction",
-      storageBucket: "dpsb-auction.firebasestorage.app",
-      messagingSenderId: "968788714180",
-      appId: "1:968788714180:web:5ce3d25bc85c8ea88c5f91",
-      measurementId: "G-NC0267LNYQ"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
-
-    // UI refs
-    const highestBidEl = document.getElementById('highestBid');
-    const bidInput      = document.getElementById('bidInput');
-    const bidRange      = document.getElementById('bidRange');
-    const bidBtn        = document.getElementById('bidBtn');
-    const bidModal      = document.getElementById('bidModal');
-    const closeModal    = document.getElementById('closeModal');
-    const bidForm       = document.getElementById('bidForm');
-
-    const authBtn       = document.getElementById('authBtn');
-    const authModal     = document.getElementById('authModal');
-    const closeAuth     = document.getElementById('closeAuth');
-    const googleBtn     = document.getElementById('googleSignIn');
-    const emailAuthForm = document.getElementById('emailAuthForm');
-    const authEmail     = document.getElementById('authEmail');
-    const authPassword  = document.getElementById('authPassword');
-
-    let currentHighest = 0;
-    let currentUser = null;
-    let isVerified  = false;
-    let pendingBidAmount = null; // remember amount selected pre‑auth
-
-    // 🔔 Realtime highest bid listener (public read)
-    db.collection('bids').orderBy('amount', 'desc').limit(1)
-      .onSnapshot(snapshot => {
-        currentHighest = snapshot.empty ? 0 : snapshot.docs[0].data().amount;
-        highestBidEl.textContent = currentHighest.toLocaleString();
-        [bidInput, bidRange].forEach(el => {
-          el.min = currentHighest + 1;
-          if (!el.value || parseInt(el.value, 10) <= currentHighest) {
-            el.value = currentHighest + 1;
-          }
-        });
-      });
-
-    // 🔁 Keep number & range in sync
-    bidInput.addEventListener('input', e => bidRange.value = e.target.value);
-    bidRange.addEventListener('input', e => bidInput.value = e.target.value);
-
-    // 👉 Auth modal triggers (check in case authBtn exists)
-    if (authBtn) {
-      authBtn.addEventListener('click', () => authModal.classList.add('active'));
-    }
-    closeAuth.addEventListener('click', () => authModal.classList.remove('active'));
-    window.addEventListener('click', e => { if (e.target === authModal) authModal.classList.remove('active'); });
-
-    // Google provider
-    googleBtn.addEventListener('click', () => {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(alert);
-    });
-
-    // Email sign‑in/register with verification
-    emailAuthForm.addEventListener('submit', async e => {
-      e.preventDefault();
-      const email = authEmail.value.trim();
-      const pwd   = authPassword.value.trim();
-      try {
-        const cred = await auth.createUserWithEmailAndPassword(email, pwd);
-        await cred.user.sendEmailVerification();
-        alert('Verification email sent. Please verify then sign in.');
-        auth.signOut();
-      } catch (err) {
-        if (err.code === 'auth/email-already-in-use') {
-          try {
-            const cred = await auth.signInWithEmailAndPassword(email, pwd);
-            if (!cred.user.emailVerified) {
-              await cred.user.sendEmailVerification();
-              alert('Email not verified. Verification link re‑sent.');
-              auth.signOut();
-            }
-          } catch (subErr) { alert(subErr.message); }
-        } else { alert(err.message); }
-      }
-    });
-
-    // 🔄 Auth state listener
-    auth.onAuthStateChanged(user => {
-      currentUser = user;
-      isVerified = !!user && (user.providerData.some(p => p.providerId === 'google.com') || user.emailVerified);
-      if (authBtn) {
-        authBtn.classList.toggle('hidden', isVerified);
-      }
-      if (isVerified && pendingBidAmount !== null) {
-        // open bid modal automatically with stored amount
-        if (pendingBidAmount <= currentHighest) {
-          pendingBidAmount = currentHighest + 1;
-          bidInput.value = pendingBidAmount;
-          bidRange.value = pendingBidAmount;
-        }
-        openBidModal();
-      }
-    });
-
-    function openBidModal() {
-      document.getElementById('email').value = currentUser.email;
-      bidModal.classList.add('active');
-      pendingBidAmount = null;
-    }
-
-    // Bid button flow
-    bidBtn.addEventListener('click', () => {
-      pendingBidAmount = parseInt(bidInput.value, 10);
-      if (!isVerified) {
-        authModal.classList.add('active');
-      } else {
-        openBidModal();
-      }
-    });
-
-    // Close bid modal
-    closeModal.addEventListener('click', () => bidModal.classList.remove('active'));
-    window.addEventListener('click
-
-    
+  <script src="app.js"></script>
+</body>
+</html>
